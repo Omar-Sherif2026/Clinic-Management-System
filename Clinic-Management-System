@@ -1,6 +1,9 @@
 #include <iostream>
 #include <vector>
 #include <string>
+#include <fstream>
+#include <sstream>
+#include <algorithm>
 
 using namespace std;
 
@@ -19,6 +22,7 @@ struct Appointment {
     string date;
     string time;
     string doctor;
+    string status; // Scheduled, Completed, Cancelled
 };
 
 class ClinicManager {
@@ -28,7 +32,79 @@ private:
     int nextPatientId = 1;
     int nextAppointmentId = 1;
 
+    const string PATIENTS_FILE = "patients.txt";
+    const string APPOINTMENTS_FILE = "appointments.txt";
+
+    // --- حفظ البيانات في الملفات ---
+    void saveData() {
+        ofstream pFile(PATIENTS_FILE);
+        for (const auto& p : patients) {
+            pFile << p.id << "," << p.name << "," << p.age << "," << p.phone << "\n";
+        }
+        pFile.close();
+
+        ofstream aFile(APPOINTMENTS_FILE);
+        for (const auto& app : appointments) {
+            aFile << app.id << "," << app.patientId << "," << app.date << "," << app.time << "," << app.doctor << "," << app.status << "\n";
+        }
+        aFile.close();
+    }
+
+    // --- تحميل البيانات من الملفات ---
+    void loadData() {
+        patients.clear();
+        appointments.clear();
+
+        ifstream pFile(PATIENTS_FILE);
+        if (pFile.is_open()) {
+            string line;
+            while (getline(pFile, line)) {
+                if (line.empty()) continue;
+                stringstream ss(line);
+                string idStr, ageStr;
+                Patient p;
+                getline(ss, idStr, ',');
+                getline(ss, p.name, ',');
+                getline(ss, ageStr, ',');
+                getline(ss, p.phone, ',');
+
+                p.id = stoi(idStr);
+                p.age = stoi(ageStr);
+                patients.push_back(p);
+                if (p.id >= nextPatientId) nextPatientId = p.id + 1;
+            }
+            pFile.close();
+        }
+
+        ifstream aFile(APPOINTMENTS_FILE);
+        if (aFile.is_open()) {
+            string line;
+            while (getline(aFile, line)) {
+                if (line.empty()) continue;
+                stringstream ss(line);
+                string idStr, pIdStr;
+                Appointment app;
+                getline(ss, idStr, ',');
+                getline(ss, pIdStr, ',');
+                getline(ss, app.date, ',');
+                getline(ss, app.time, ',');
+                getline(ss, app.doctor, ',');
+                getline(ss, app.status, ',');
+
+                app.id = stoi(idStr);
+                app.patientId = stoi(pIdStr);
+                appointments.push_back(app);
+                if (app.id >= nextAppointmentId) nextAppointmentId = app.id + 1;
+            }
+            aFile.close();
+        }
+    }
+
 public:
+    ClinicManager() {
+        loadData();
+    }
+
     // 1. إضافة مريض جديد
     void addPatient() {
         Patient p;
@@ -44,13 +120,91 @@ public:
         cin >> p.phone;
 
         patients.push_back(p);
+        saveData();
         cout << "✅ تم تسجيل المريض بنجاح برقم تعريف (ID): " << p.id << "\n";
     }
 
-    // 2. حجز موعد جديد
+    // 2. تعديل بيانات مريض
+    void editPatient() {
+        int id;
+        cout << "\nأدخل رقم تعريف المريض المراد تعديله: ";
+        cin >> id;
+
+        for (auto& p : patients) {
+            if (p.id == id) {
+                cout << "الاسم الحالي (" << p.name << ") - الاسم الجديد: ";
+                cin.ignore();
+                getline(cin, p.name);
+                cout << "العمر الحالي (" << p.age << ") - العمر الجديد: ";
+                cin >> p.age;
+                cout << "رقم الهاتف الحالي (" << p.phone << ") - الرقم الجديد: ";
+                cin >> p.phone;
+
+                saveData();
+                cout << "✅ تم تعديل بيانات المريض بنجاح.\n";
+                return;
+            }
+        }
+        cout << "❌ لم يتم العثور على مريض بهذا الرقم.\n";
+    }
+
+    // 3. حذف مريض
+    void deletePatient() {
+        int id;
+        cout << "\nأدخل رقم تعريف المريض المراد حذفه: ";
+        cin >> id;
+
+        bool found = false;
+        for (auto it = patients.begin(); it != patients.end(); ++it) {
+            if (it->id == id) {
+                patients.erase(it);
+                found = true;
+                break;
+            }
+        }
+
+        if (found) {
+            for (auto it = appointments.begin(); it != appointments.end(); ) {
+                if (it->patientId == id) {
+                    it = appointments.erase(it);
+                } else {
+                    ++it;
+                }
+            }
+            saveData();
+            cout << "✅ تم حذف المريض وكافة مواعيده بنجاح.\n";
+        } else {
+            cout << "❌ لم يتم العثور على مريض بهذا الرقم.\n";
+        }
+    }
+
+    // 4. البحث عن مريض بالاسم أو الـ ID
+    void searchPatient() {
+        if (patients.empty()) {
+            cout << "\n👥 لا يوجد مرضى مسجلين.\n";
+            return;
+        }
+
+        cout << "\n--- البحث عن مريض ---\n";
+        cout << "أدخل جزء من الاسم أو رقم الـ ID: ";
+        string query;
+        cin.ignore();
+        getline(cin, query);
+
+        bool found = false;
+        for (const auto& p : patients) {
+            if (to_string(p.id) == query || p.name.find(query) != string::npos || p.phone.find(query) != string::npos) {
+                cout << "📍 ID: " << p.id << " | الاسم: " << p.name << " | العمر: " << p.age << " | الهاتف: " << p.phone << "\n";
+                found = true;
+            }
+        }
+        if (!found) cout << "❌ لم يتم العثور على نتائج طابقت البحث.\n";
+    }
+
+    // 5. حجز موعد جديد
     void bookAppointment() {
         if (patients.empty()) {
-            cout << "⚠️ لا يوجد مرضى مسجلين بالنظام حالياً. يرجى إضافة مريض أولاً.\n";
+            cout << "⚠️ لا يوجد مرضى مسجلين بالنظام حالياً.\n";
             return;
         }
 
@@ -61,7 +215,6 @@ public:
         cout << "أدخل رقم تعريف المريض (Patient ID): ";
         cin >> app.patientId;
 
-        // التحقق من وجود المريض
         bool found = false;
         for (const auto& p : patients) {
             if (p.id == app.patientId) {
@@ -71,23 +224,83 @@ public:
         }
 
         if (!found) {
-            cout << "❌ عذراً، لم يتم العثور على مريض بهذا الرقم.\n";
+            cout << "❌ لم يتم العثور على مريض بهذا الرقم.\n";
             return;
         }
 
-        cout << "تاريخ الموعد (مثال: 2026-08-01): ";
+        cout << "تاريخ الموعد (YYYY-MM-DD): ";
         cin >> app.date;
-        cout << "وقت الموعد (مثال: 10:30): ";
+        cout << "وقت الموعد (HH:MM): ";
         cin >> app.time;
         cout << "اسم الطبيب المعالج: ";
         cin.ignore();
         getline(cin, app.doctor);
+        app.status = "Scheduled";
 
         appointments.push_back(app);
+        saveData();
         cout << "📅 تم حجز الموعد بنجاح. رقم الموعد: " << app.id << "\n";
     }
 
-    // 3. عرض جدول المواعيد بالكامل
+    // 6. تغيير حالة الموعد (مكتمل / ملغي)
+    void updateAppointmentStatus() {
+        int id;
+        cout << "\nأدخل رقم الموعد المراد تعديل حالته: ";
+        cin >> id;
+
+        for (auto& app : appointments) {
+            if (app.id == id) {
+                cout << "اختر الحالة الجديدة:\n1. مكتمل (Completed)\n2. ملغي (Cancelled)\n3. مجدول (Scheduled)\nالخيار: ";
+                int statusChoice;
+                cin >> statusChoice;
+                if (statusChoice == 1) app.status = "Completed";
+                else if (statusChoice == 2) app.status = "Cancelled";
+                else app.status = "Scheduled";
+
+                saveData();
+                cout << "✅ تم تحديث حالة الموعد بنجاح.\n";
+                return;
+            }
+        }
+        cout << "❌ لم يتم العثور على موعد بهذا الرقم.\n";
+    }
+
+    // 7. عرض السجل الطبي لمريض
+    void viewPatientHistory() {
+        int id;
+        cout << "\nأدخل رقم تعريف المريض لعرض السجل: ";
+        cin >> id;
+
+        string patientName = "";
+        for (const auto& p : patients) {
+            if (p.id == id) {
+                patientName = p.name;
+                break;
+            }
+        }
+
+        if (patientName.empty()) {
+            cout << "❌ لم يتم العثور على مريض بهذا الرقم.\n";
+            return;
+        }
+
+        cout << "\n================ السجل الطبي للمريض: " << patientName << " ================\n";
+        bool hasAppointments = false;
+        for (const auto& app : appointments) {
+            if (app.patientId == id) {
+                cout << "رقم الموعد: " << app.id 
+                     << " | التاريخ: " << app.date 
+                     << " | الوقت: " << app.time 
+                     << " | الطبيب: " << app.doctor 
+                     << " | الحالة: " << app.status << "\n";
+                hasAppointments = true;
+            }
+        }
+        if (!hasAppointments) cout << "لا توجد مواعيد مسجلة لهذا المريض.\n";
+        cout << "========================================================================\n";
+    }
+
+    // 8. عرض كافة المواعيد
     void viewAppointments() {
         if (appointments.empty()) {
             cout << "\n📅 جدول المواعيد فارغ حالياً.\n";
@@ -97,58 +310,76 @@ public:
         cout << "\n================ جدول المواعيد الحالي ================\n";
         for (const auto& app : appointments) {
             string patientName = "غير معروف";
-            
-            // جلب اسم المريض بناءً على الـ ID
             for (const auto& p : patients) {
                 if (p.id == app.patientId) {
                     patientName = p.name;
                     break;
                 }
             }
-
             cout << "رقم الموعد: " << app.id 
                  << " | المريض: " << patientName 
                  << " | التاريخ: " << app.date 
                  << " | الوقت: " << app.time 
-                 << " | الطبيب: " << app.doctor << "\n";
+                 << " | الطبيب: " << app.doctor 
+                 << " | الحالة: [" << app.status << "]\n";
         }
         cout << "======================================================\n";
+    }
+
+    // 9. عرض كافة المرضى
+    void viewPatients() {
+        if (patients.empty()) {
+            cout << "\n👥 لا يوجد مرضى مسجلين.\n";
+            return;
+        }
+        cout << "\n================ قائمة المرضى ================\n";
+        for (const auto& p : patients) {
+            cout << "ID: " << p.id << " | الاسم: " << p.name << " | العمر: " << p.age << " | الهاتف: " << p.phone << "\n";
+        }
+        cout << "=============================================\n";
     }
 };
 
 int main() {
-    // تعريب ترميز المخرجات في وحدة التحكم (لويندوز)
     setlocale(LC_ALL, "Arabic");
-    
     ClinicManager clinic;
     int choice;
 
     do {
-        cout << "\n--- نظام إدارة العيادة الطبية ---\n";
+        cout << "\n--- نظام إدارة العيادة الطبية (النسخة الشاملة v3.0) ---\n";
         cout << "1. إضافة مريض جديد\n";
-        cout << "2. حجز موعد طبي\n";
-        cout << "3. عرض جدول المواعيد\n";
-        cout << "4. خروج من البرنامج\n";
-        cout << "اختر عملية (1-4): ";
-        cin >> choice;
+        cout << "2. عرض قائمة المرضى\n";
+        cout << "3. البحث عن مريض\n";
+        cout << "4. تعديل بيانات مريض\n";
+        cout << "5. حذف مريض\n";
+        cout << "6. حجز موعد طبي\n";
+        cout << "7. عرض جدول المواعيد\n";
+        cout << "8. تعديل حالة موعد (مكتمل/ملغي)\n";
+        cout << "9. عرض السجل الطبي لمريض\n";
+        cout << "10. خروج من البرنامج\n";
+        cout << "اختر عملية (1-10): ";
+        
+        if (!(cin >> choice)) {
+            cin.clear();
+            cin.ignore(10000, '\n');
+            cout << "⚠️ إدخال خاطئ! يرجى كتابة رقم من 1 إلى 10.\n";
+            continue;
+        }
 
         switch (choice) {
-            case 1:
-                clinic.addPatient();
-                break;
-            case 2:
-                clinic.bookAppointment();
-                break;
-            case 3:
-                clinic.viewAppointments();
-                break;
-            case 4:
-                cout << "👋 تم إغلاق النظام. شكراً لك!\n";
-                break;
-            default:
-                cout << "⚠️ خيار غير صحيح، يرجى المحاولة مجدداً.\n";
+            case 1: clinic.addPatient(); break;
+            case 2: clinic.viewPatients(); break;
+            case 3: clinic.searchPatient(); break;
+            case 4: clinic.editPatient(); break;
+            case 5: clinic.deletePatient(); break;
+            case 6: clinic.bookAppointment(); break;
+            case 7: clinic.viewAppointments(); break;
+            case 8: clinic.updateAppointmentStatus(); break;
+            case 9: clinic.viewPatientHistory(); break;
+            case 10: cout << "👋 تم إغلاق النظام وحفظ البيانات تلقائياً.\n"; break;
+            default: cout << "⚠️ خيار غير صحيح، حاول مجدداً.\n";
         }
-    } while (choice != 4);
+    } while (choice != 10);
 
     return 0;
 }
