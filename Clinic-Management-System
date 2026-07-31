@@ -3,9 +3,18 @@
 #include <string>
 #include <fstream>
 #include <sstream>
-#include <algorithm>
+#include <iomanip> // للتنسيق الاحترافي للجداول
 
 using namespace std;
+
+// ألوان الـ ANSI للواجهة الاحترافية
+#define RESET   "\033[0m"
+#define RED     "\033[31m"
+#define GREEN   "\033[32m"
+#define YELLOW  "\033[33m"
+#define BLUE    "\033[34m"
+#define CYAN    "\033[36m"
+#define BOLD    "\033[1m"
 
 // هيكل بيانات المريض
 struct Patient {
@@ -50,7 +59,7 @@ private:
         aFile.close();
     }
 
-    // --- تحميل البيانات من الملفات ---
+    // --- تحميل البيانات من الملفات عند تشغيل البرنامج ---
     void loadData() {
         patients.clear();
         appointments.clear();
@@ -109,8 +118,7 @@ public:
     void addPatient() {
         Patient p;
         p.id = nextPatientId++;
-        
-        cout << "\n--- إضافة مريض جديد ---\n";
+        cout << CYAN << "\n=== إضافة مريض جديد ===" << RESET << endl;
         cout << "اسم المريض: ";
         cin.ignore();
         getline(cin, p.name);
@@ -121,10 +129,49 @@ public:
 
         patients.push_back(p);
         saveData();
-        cout << "✅ تم تسجيل المريض بنجاح برقم تعريف (ID): " << p.id << "\n";
+        cout << GREEN << "✅ تم تسجيل المريض بنجاح برقم تعريف (ID): " << p.id << RESET << endl;
     }
 
-    // 2. تعديل بيانات مريض
+    // 2. عرض كافة المرضى في جدول منظم
+    void viewPatients() {
+        if (patients.empty()) {
+            cout << YELLOW << "\n👥 لا يوجد مرضى مسجلين حالياً." << RESET << endl;
+            return;
+        }
+        cout << CYAN << BOLD << "\n================================ قائمة المرضى ================================" << RESET << endl;
+        cout << left << setw(8) << "ID" << setw(25) << "Name" << setw(10) << "Age" << setw(18) << "Phone" << endl;
+        cout << "-----------------------------------------------------------------------------" << endl;
+        for (const auto& p : patients) {
+            cout << left << setw(8) << p.id << setw(25) << p.name << setw(10) << p.age << setw(18) << p.phone << endl;
+        }
+        cout << CYAN << "=============================================================================\n" << RESET << endl;
+    }
+
+    // 3. البحث عن مريض بالاسم، الـ ID أو الهاتف
+    void searchPatient() {
+        if (patients.empty()) {
+            cout << YELLOW << "\n👥 لا يوجد مرضى مسجلين." << RESET << endl;
+            return;
+        }
+        cout << CYAN << "\n=== البحث عن مريض ===" << RESET << endl;
+        cout << "أدخل الاسم أو رقم الـ ID أو الهاتف: ";
+        string query;
+        cin.ignore();
+        getline(cin, query);
+
+        bool found = false;
+        cout << left << setw(8) << "ID" << setw(25) << "Name" << setw(10) << "Age" << setw(18) << "Phone" << endl;
+        cout << "-----------------------------------------------------------------------------" << endl;
+        for (const auto& p : patients) {
+            if (to_string(p.id) == query || p.name.find(query) != string::npos || p.phone.find(query) != string::npos) {
+                cout << left << setw(8) << p.id << setw(25) << p.name << setw(10) << p.age << setw(18) << p.phone << endl;
+                found = true;
+            }
+        }
+        if (!found) cout << RED << "❌ لم يتم العثور على نتائج طابقت البحث." << RESET << endl;
+    }
+
+    // 4. تعديل بيانات مريض
     void editPatient() {
         int id;
         cout << "\nأدخل رقم تعريف المريض المراد تعديله: ";
@@ -141,14 +188,14 @@ public:
                 cin >> p.phone;
 
                 saveData();
-                cout << "✅ تم تعديل بيانات المريض بنجاح.\n";
+                cout << GREEN << "✅ تم تعديل بيانات المريض بنجاح." << RESET << endl;
                 return;
             }
         }
-        cout << "❌ لم يتم العثور على مريض بهذا الرقم.\n";
+        cout << RED << "❌ لم يتم العثور على مريض بهذا الرقم." << RESET << endl;
     }
 
-    // 3. حذف مريض
+    // 5. حذف مريض وحذف مواعيده تلقائياً (Cascade Delete)
     void deletePatient() {
         int id;
         cout << "\nأدخل رقم تعريف المريض المراد حذفه: ";
@@ -172,46 +219,23 @@ public:
                 }
             }
             saveData();
-            cout << "✅ تم حذف المريض وكافة مواعيده بنجاح.\n";
+            cout << GREEN << "✅ تم حذف المريض وكافة مواعيده بنجاح." << RESET << endl;
         } else {
-            cout << "❌ لم يتم العثور على مريض بهذا الرقم.\n";
+            cout << RED << "❌ لم يتم العثور على مريض بهذا الرقم." << RESET << endl;
         }
     }
 
-    // 4. البحث عن مريض بالاسم أو الـ ID
-    void searchPatient() {
-        if (patients.empty()) {
-            cout << "\n👥 لا يوجد مرضى مسجلين.\n";
-            return;
-        }
-
-        cout << "\n--- البحث عن مريض ---\n";
-        cout << "أدخل جزء من الاسم أو رقم الـ ID: ";
-        string query;
-        cin.ignore();
-        getline(cin, query);
-
-        bool found = false;
-        for (const auto& p : patients) {
-            if (to_string(p.id) == query || p.name.find(query) != string::npos || p.phone.find(query) != string::npos) {
-                cout << "📍 ID: " << p.id << " | الاسم: " << p.name << " | العمر: " << p.age << " | الهاتف: " << p.phone << "\n";
-                found = true;
-            }
-        }
-        if (!found) cout << "❌ لم يتم العثور على نتائج طابقت البحث.\n";
-    }
-
-    // 5. حجز موعد جديد
+    // 6. حجز موعد طبي جديد
     void bookAppointment() {
         if (patients.empty()) {
-            cout << "⚠️ لا يوجد مرضى مسجلين بالنظام حالياً.\n";
+            cout << YELLOW << "⚠️ لا يوجد مرضى مسجلين بالنظام حالياً." << RESET << endl;
             return;
         }
 
         Appointment app;
         app.id = nextAppointmentId++;
 
-        cout << "\n--- حجز موعد طبي ---\n";
+        cout << CYAN << "\n=== حجز موعد طبي ===" << RESET << endl;
         cout << "أدخل رقم تعريف المريض (Patient ID): ";
         cin >> app.patientId;
 
@@ -224,7 +248,7 @@ public:
         }
 
         if (!found) {
-            cout << "❌ لم يتم العثور على مريض بهذا الرقم.\n";
+            cout << RED << "❌ لم يتم العثور على مريض بهذا الرقم." << RESET << endl;
             return;
         }
 
@@ -239,10 +263,33 @@ public:
 
         appointments.push_back(app);
         saveData();
-        cout << "📅 تم حجز الموعد بنجاح. رقم الموعد: " << app.id << "\n";
+        cout << GREEN << "📅 تم حجز الموعد بنجاح. رقم الموعد: " << app.id << RESET << endl;
     }
 
-    // 6. تغيير حالة الموعد (مكتمل / ملغي)
+    // 7. عرض جدول المواعيد
+    void viewAppointments() {
+        if (appointments.empty()) {
+            cout << YELLOW << "\n📅 جدول المواعيد فارغ حالياً." << RESET << endl;
+            return;
+        }
+
+        cout << CYAN << BOLD << "\n=================================== جدول المواعيد ===================================" << RESET << endl;
+        cout << left << setw(8) << "App ID" << setw(20) << "Patient Name" << setw(14) << "Date" << setw(10) << "Time" << setw(20) << "Doctor" << setw(12) << "Status" << endl;
+        cout << "----------------------------------------------------------------------------------------------------" << endl;
+        for (const auto& app : appointments) {
+            string patientName = "Unknown";
+            for (const auto& p : patients) {
+                if (p.id == app.patientId) {
+                    patientName = p.name;
+                    break;
+                }
+            }
+            cout << left << setw(8) << app.id << setw(20) << patientName << setw(14) << app.date << setw(10) << app.time << setw(20) << app.doctor << setw(12) << app.status << endl;
+        }
+        cout << CYAN << "====================================================================================================\n" << RESET << endl;
+    }
+
+    // 8. تعديل حالة موعد (مكتمل / ملغي / مجدول)
     void updateAppointmentStatus() {
         int id;
         cout << "\nأدخل رقم الموعد المراد تعديل حالته: ";
@@ -258,14 +305,14 @@ public:
                 else app.status = "Scheduled";
 
                 saveData();
-                cout << "✅ تم تحديث حالة الموعد بنجاح.\n";
+                cout << GREEN << "✅ تم تحديث حالة الموعد بنجاح." << RESET << endl;
                 return;
             }
         }
-        cout << "❌ لم يتم العثور على موعد بهذا الرقم.\n";
+        cout << RED << "❌ لم يتم العثور على موعد بهذا الرقم." << RESET << endl;
     }
 
-    // 7. عرض السجل الطبي لمريض
+    // 9. عرض السجل الطبي لمريض محدد
     void viewPatientHistory() {
         int id;
         cout << "\nأدخل رقم تعريف المريض لعرض السجل: ";
@@ -280,63 +327,21 @@ public:
         }
 
         if (patientName.empty()) {
-            cout << "❌ لم يتم العثور على مريض بهذا الرقم.\n";
+            cout << RED << "❌ لم يتم العثور على مريض بهذا الرقم." << RESET << endl;
             return;
         }
 
-        cout << "\n================ السجل الطبي للمريض: " << patientName << " ================\n";
+        cout << CYAN << BOLD << "\n=== السجل الطبي للمريض: " << patientName << " ===" << RESET << endl;
         bool hasAppointments = false;
+        cout << left << setw(8) << "App ID" << setw(14) << "Date" << setw(10) << "Time" << setw(20) << "Doctor" << setw(12) << "Status" << endl;
+        cout << "------------------------------------------------------------------" << endl;
         for (const auto& app : appointments) {
             if (app.patientId == id) {
-                cout << "رقم الموعد: " << app.id 
-                     << " | التاريخ: " << app.date 
-                     << " | الوقت: " << app.time 
-                     << " | الطبيب: " << app.doctor 
-                     << " | الحالة: " << app.status << "\n";
+                cout << left << setw(8) << app.id << setw(14) << app.date << setw(10) << app.time << setw(20) << app.doctor << setw(12) << app.status << endl;
                 hasAppointments = true;
             }
         }
-        if (!hasAppointments) cout << "لا توجد مواعيد مسجلة لهذا المريض.\n";
-        cout << "========================================================================\n";
-    }
-
-    // 8. عرض كافة المواعيد
-    void viewAppointments() {
-        if (appointments.empty()) {
-            cout << "\n📅 جدول المواعيد فارغ حالياً.\n";
-            return;
-        }
-
-        cout << "\n================ جدول المواعيد الحالي ================\n";
-        for (const auto& app : appointments) {
-            string patientName = "غير معروف";
-            for (const auto& p : patients) {
-                if (p.id == app.patientId) {
-                    patientName = p.name;
-                    break;
-                }
-            }
-            cout << "رقم الموعد: " << app.id 
-                 << " | المريض: " << patientName 
-                 << " | التاريخ: " << app.date 
-                 << " | الوقت: " << app.time 
-                 << " | الطبيب: " << app.doctor 
-                 << " | الحالة: [" << app.status << "]\n";
-        }
-        cout << "======================================================\n";
-    }
-
-    // 9. عرض كافة المرضى
-    void viewPatients() {
-        if (patients.empty()) {
-            cout << "\n👥 لا يوجد مرضى مسجلين.\n";
-            return;
-        }
-        cout << "\n================ قائمة المرضى ================\n";
-        for (const auto& p : patients) {
-            cout << "ID: " << p.id << " | الاسم: " << p.name << " | العمر: " << p.age << " | الهاتف: " << p.phone << "\n";
-        }
-        cout << "=============================================\n";
+        if (!hasAppointments) cout << YELLOW << "لا توجد مواعيد مسجلة لهذا المريض." << RESET << endl;
     }
 };
 
@@ -346,23 +351,25 @@ int main() {
     int choice;
 
     do {
-        cout << "\n--- نظام إدارة العيادة الطبية (النسخة الشاملة v3.0) ---\n";
-        cout << "1. إضافة مريض جديد\n";
-        cout << "2. عرض قائمة المرضى\n";
-        cout << "3. البحث عن مريض\n";
-        cout << "4. تعديل بيانات مريض\n";
-        cout << "5. حذف مريض\n";
-        cout << "6. حجز موعد طبي\n";
-        cout << "7. عرض جدول المواعيد\n";
-        cout << "8. تعديل حالة موعد (مكتمل/ملغي)\n";
-        cout << "9. عرض السجل الطبي لمريض\n";
+        cout << BLUE << BOLD << "\n--------------------------------------------" << RESET << endl;
+        cout << BLUE << BOLD << " 🏥 نظام إدارة العيادة الطبية (v3.0 Ultra)" << RESET << endl;
+        cout << BLUE << BOLD << "--------------------------------------------" << RESET << endl;
+        cout << "1.  إضافة مريض جديد\n";
+        cout << "2.  عرض قائمة المرضى\n";
+        cout << "3.  البحث عن مريض\n";
+        cout << "4.  تعديل بيانات مريض\n";
+        cout << "5.  حذف مريض\n";
+        cout << "6.  حجز موعد طبي\n";
+        cout << "7.  عرض جدول المواعيد\n";
+        cout << "8.  تعديل حالة موعد\n";
+        cout << "9.  عرض السجل الطبي لمريض\n";
         cout << "10. خروج من البرنامج\n";
-        cout << "اختر عملية (1-10): ";
-        
+        cout << BOLD << "اختر عملية (1-10): " << RESET;
+
         if (!(cin >> choice)) {
             cin.clear();
             cin.ignore(10000, '\n');
-            cout << "⚠️ إدخال خاطئ! يرجى كتابة رقم من 1 إلى 10.\n";
+            cout << RED << "⚠️ إدخال خاطئ! يرجى كتابة رقم من 1 إلى 10." << RESET << endl;
             continue;
         }
 
@@ -376,8 +383,8 @@ int main() {
             case 7: clinic.viewAppointments(); break;
             case 8: clinic.updateAppointmentStatus(); break;
             case 9: clinic.viewPatientHistory(); break;
-            case 10: cout << "👋 تم إغلاق النظام وحفظ البيانات تلقائياً.\n"; break;
-            default: cout << "⚠️ خيار غير صحيح، حاول مجدداً.\n";
+            case 10: cout << GREEN << "👋 تم إغلاق النظام وحفظ البيانات تلقائياً." << RESET << endl; break;
+            default: cout << RED << "⚠️ خيار غير صحيح، حاول مجدداً." << RESET << endl;
         }
     } while (choice != 10);
 
