@@ -1,0 +1,154 @@
+#include <iostream>
+#include <vector>
+#include <string>
+
+using namespace std;
+
+// هيكل بيانات المريض
+struct Patient {
+    int id;
+    string name;
+    int age;
+    string phone;
+};
+
+// هيكل بيانات الموعد الطبي
+struct Appointment {
+    int id;
+    int patientId;
+    string date;
+    string time;
+    string doctor;
+};
+
+class ClinicManager {
+private:
+    vector<Patient> patients;
+    vector<Appointment> appointments;
+    int nextPatientId = 1;
+    int nextAppointmentId = 1;
+
+public:
+    // 1. إضافة مريض جديد
+    void addPatient() {
+        Patient p;
+        p.id = nextPatientId++;
+        
+        cout << "\n--- إضافة مريض جديد ---\n";
+        cout << "اسم المريض: ";
+        cin.ignore();
+        getline(cin, p.name);
+        cout << "العمر: ";
+        cin >> p.age;
+        cout << "رقم الهاتف: ";
+        cin >> p.phone;
+
+        patients.push_back(p);
+        cout << "✅ تم تسجيل المريض بنجاح برقم تعريف (ID): " << p.id << "\n";
+    }
+
+    // 2. حجز موعد جديد
+    void bookAppointment() {
+        if (patients.empty()) {
+            cout << "⚠️ لا يوجد مرضى مسجلين بالنظام حالياً. يرجى إضافة مريض أولاً.\n";
+            return;
+        }
+
+        Appointment app;
+        app.id = nextAppointmentId++;
+
+        cout << "\n--- حجز موعد طبي ---\n";
+        cout << "أدخل رقم تعريف المريض (Patient ID): ";
+        cin >> app.patientId;
+
+        // التحقق من وجود المريض
+        bool found = false;
+        for (const auto& p : patients) {
+            if (p.id == app.patientId) {
+                found = true;
+                break;
+            }
+        }
+
+        if (!found) {
+            cout << "❌ عذراً، لم يتم العثور على مريض بهذا الرقم.\n";
+            return;
+        }
+
+        cout << "تاريخ الموعد (مثال: 2026-08-01): ";
+        cin >> app.date;
+        cout << "وقت الموعد (مثال: 10:30): ";
+        cin >> app.time;
+        cout << "اسم الطبيب المعالج: ";
+        cin.ignore();
+        getline(cin, app.doctor);
+
+        appointments.push_back(app);
+        cout << "📅 تم حجز الموعد بنجاح. رقم الموعد: " << app.id << "\n";
+    }
+
+    // 3. عرض جدول المواعيد بالكامل
+    void viewAppointments() {
+        if (appointments.empty()) {
+            cout << "\n📅 جدول المواعيد فارغ حالياً.\n";
+            return;
+        }
+
+        cout << "\n================ جدول المواعيد الحالي ================\n";
+        for (const auto& app : appointments) {
+            string patientName = "غير معروف";
+            
+            // جلب اسم المريض بناءً على الـ ID
+            for (const auto& p : patients) {
+                if (p.id == app.patientId) {
+                    patientName = p.name;
+                    break;
+                }
+            }
+
+            cout << "رقم الموعد: " << app.id 
+                 << " | المريض: " << patientName 
+                 << " | التاريخ: " << app.date 
+                 << " | الوقت: " << app.time 
+                 << " | الطبيب: " << app.doctor << "\n";
+        }
+        cout << "======================================================\n";
+    }
+};
+
+int main() {
+    // تعريب ترميز المخرجات في وحدة التحكم (لويندوز)
+    setlocale(LC_ALL, "Arabic");
+    
+    ClinicManager clinic;
+    int choice;
+
+    do {
+        cout << "\n--- نظام إدارة العيادة الطبية ---\n";
+        cout << "1. إضافة مريض جديد\n";
+        cout << "2. حجز موعد طبي\n";
+        cout << "3. عرض جدول المواعيد\n";
+        cout << "4. خروج من البرنامج\n";
+        cout << "اختر عملية (1-4): ";
+        cin >> choice;
+
+        switch (choice) {
+            case 1:
+                clinic.addPatient();
+                break;
+            case 2:
+                clinic.bookAppointment();
+                break;
+            case 3:
+                clinic.viewAppointments();
+                break;
+            case 4:
+                cout << "👋 تم إغلاق النظام. شكراً لك!\n";
+                break;
+            default:
+                cout << "⚠️ خيار غير صحيح، يرجى المحاولة مجدداً.\n";
+        }
+    } while (choice != 4);
+
+    return 0;
+}
